@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pendientes</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pendientes">
+<meta name="theme-color" content="#2563eb">
+<style>
+  :root { --bg:#f8fafc; --card:#fff; --tx:#0f172a; --mut:#64748b; --pri:#2563eb; --bd:#e2e8f0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f172a; --card:#1e293b; --tx:#f1f5f9; --mut:#94a3b8; --bd:#334155; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px -apple-system,system-ui,sans-serif; background:var(--bg); color:var(--tx);
+         padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom)); }
+  main { max-width:640px; margin:0 auto; }
+  h1 { font-size:24px; margin:8px 0 16px; }
+  textarea { width:100%; min-height:90px; padding:12px; font:inherit; color:var(--tx); background:var(--card);
+             border:1px solid var(--bd); border-radius:12px; resize:vertical; }
+  .row { display:flex; gap:8px; margin:8px 0 20px; }
+  button, .btn { font:inherit; border:0; border-radius:10px; padding:10px 14px; cursor:pointer;
+                 background:var(--pri); color:#fff; text-decoration:none; display:inline-block; }
+  button.sec { background:var(--bd); color:var(--tx); }
+  button.add { flex:1; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tabs button { background:var(--bd); color:var(--tx); }
+  .tabs button.on { background:var(--pri); color:#fff; }
+  .task { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:12px; margin-bottom:10px; }
+  .task p { margin:0 0 10px; white-space:pre-wrap; word-break:break-word; }
+  .task.done p { text-decoration:line-through; color:var(--mut); }
+  .meta { color:var(--mut); font-size:12px; margin-bottom:8px; }
+  .acts { display:flex; gap:8px; flex-wrap:wrap; }
+  .acts button, .acts .btn { padding:6px 10px; font-size:14px; }
+  .empty { color:var(--mut); text-align:center; padding:32px 0; }
+  details { color:var(--mut); font-size:14px; margin-top:24px; }
+  details code { word-break:break-all; }
+</style>
+</head>
+<body>
+<main>
+  <h1>📝 Pendientes</h1>
+  <textarea id="txt" placeholder="Pega aquí el mensaje o escribe una tarea…"></textarea>
+  <div class="row">
+    <button class="add" id="add">Agregar</button>
+    <button class="sec" id="paste">Pegar</button>
+  </div>
+  <div class="tabs">
+    <button data-f="open" class="on">Pendientes</button>
+    <button data-f="done">Hechas</button>
+  </div>
+  <div id="list"></div>
+  <details>
+    <summary>Cómo reenviar mensajes desde WhatsApp (iPhone)</summary>
+    <ol>
+      <li>Abre esta app en Safari → Compartir → <b>Añadir a pantalla de inicio</b>.</li>
+      <li>En la app <b>Atajos</b> crea un atajo nuevo, actívalo en «Mostrar en hoja de compartir» (tipo: Texto).</li>
+      <li>Acciones: <i>Codificar URL</i> (entrada: Entrada del atajo) → <i>Abrir URLs</i> con
+        <code id="base"></code><code>?text=</code> + texto codificado.</li>
+      <li>En WhatsApp: mantén el mensaje → Compartir → tu atajo. La tarea aparece aquí.</li>
+    </ol>
+    Alternativa sin atajo: copia el mensaje y toca <b>Pegar</b>.
+  </details>
+</main>
+<script>
+const KEY = 'pendientes.v1';
+let tasks = [], filter = 'open';
+try { tasks = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(tasks)); } catch (e) {} };
+const $ = id => document.getElementById(id);
+
+function add(text) {
+  text = (text || '').trim();
+  if (!text) return;
+  tasks.unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text, done: false, created: Date.now() });
+  save(); render();
+}
+
+function calUrl(t) {
+  const title = t.text.split('\n')[0].slice(0, 80);
+  const p = new URLSearchParams({ action: 'TEMPLATE', text: title, details: t.text });
+  return 'https://calendar.google.com/calendar/render?' + p;
+}
+
+function render() {
+  const list = $('list');
+  list.textContent = '';
+  const shown = tasks.filter(t => t.done === (filter === 'done'));
+  if (!shown.length) {
+    const d = document.createElement('div');
+    d.className = 'empty';
+    d.textContent = filter === 'open' ? 'Sin pendientes 🎉' : 'Nada completado aún';
+    list.append(d);
+  }
+  for (const t of shown) {
+    const el = document.createElement('div');
+    el.className = 'task' + (t.done ? ' done' : '');
+    const p = document.createElement('p'); p.textContent = t.text;
+    const m = document.createElement('div'); m.className = 'meta';
+    m.textContent = new Date(t.created).toLocaleString('es');
+    const a = document.createElement('div'); a.className = 'acts';
+    const cal = document.createElement('a');
+    cal.className = 'btn'; cal.textContent = '📅 Calendar'; cal.href = calUrl(t); cal.target = '_blank'; cal.rel = 'noopener';
+    const dn = document.createElement('button'); dn.className = 'sec';
+    dn.textContent = t.done ? '↩︎ Reabrir' : '✓ Hecha';
+    dn.onclick = () => { t.done = !t.done; save(); render(); };
+    const del = document.createElement('button'); del.className = 'sec'; del.textContent = '🗑';
+    del.onclick = () => { if (confirm('¿Borrar?')) { tasks = tasks.filter(x => x.id !== t.id); save(); render(); } };
+    a.append(cal, dn, del);
+    el.append(p, m, a);
+    list.append(el);
+  }
+}
+
+$('add').onclick = () => { add($('txt').value); $('txt').value = ''; };
+$('paste').onclick = async () => {
+  try { $('txt').value = await navigator.clipboard.readText(); } catch (e) { $('txt').focus(); }
+};
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  filter = b.dataset.f;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+$('base').textContent = location.origin + location.pathname;
+
+// Entrada por enlace: ?text=... (usado por el Atajo de iOS)
+const q = new URLSearchParams(location.search).get('text');
+if (q) { add(q); history.replaceState(null, '', location.pathname); }
+
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
