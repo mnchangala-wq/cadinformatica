@@ -168,7 +168,13 @@ function icon(kind) {
   return '<svg viewBox="0 0 64 36" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="10" width="34" height="16" rx="2"/><rect x="38" y="13" width="18" height="10" rx="2"/><circle cx="47" cy="18" r="2.5" fill="currentColor"/></svg>';
 }
 
-function search(text, brand) {
+const BRAND_WORDS = {Dell:/\bdell\b/, HP:/\b(hp|hewlett)\b/, Lenovo:/\blenovo\b|\bthinkpad\b|\bideapad\b/, Acer:/\bacer\b/, ASUS:/\basus\b|\bvivobook\b/, Samsung:/\bsamsung\b/, Toshiba:/\btoshiba\b/, Sony:/\bsony\b|\bvaio\b/, MSI:/\bmsi\b/, Apple:/\bapple\b|\bmacbook\b/, Huawei:/\bhuawei\b/, Microsoft:/\bmicrosoft\b|\bsurface\b/, LG:/\blg\b/};
+function detectBrand(text) {
+  const t = text.toLowerCase();
+  const found = Object.keys(BRAND_WORDS).filter(b => BRAND_WORDS[b].test(t));
+  return found.length === 1 ? found[0] : "";
+}
+function search(text, brand, minScore = 1) {
   const q = norm(text);
   const hits = [];
   DB.forEach(e => {
@@ -188,7 +194,7 @@ function search(text, brand) {
     if (score) hits.push({e, score});
   });
   hits.sort((a, b) => b.score - a.score);
-  return hits;
+  return hits.filter(h => h.score >= minScore);
 }
 
 function render(hits, text) {
@@ -251,11 +257,11 @@ async function handleFile(f) {
     $("ocrText").hidden = false;
     $("ocrText").textContent = text || "(no se detectó texto)";
     if (!text) { $("ocrStatus").textContent = "No pude leer texto. Probá con una foto más cercana y con buena luz."; return; }
-    const hits = search(text, $("brand").value);
+    const det = $("brand").value || detectBrand(text);
+    const hits = search(text, det, 5);
     $("ocrStatus").textContent = hits.length ? "Texto leído. Estos son los modelos que coinciden:" : "Texto leído, pero no coincide con la base. Corregí el modelo a mano arriba.";
     // sugerir un modelo en el buscador: línea con "model"/"mod" o la más parecida a un código
-    const m = text.match(/(?:model|mod\.?|type|p\/n)\s*[:.]?\s*([A-Z0-9][A-Z0-9\-\/ ]{3,24})/i);
-    if (m) $("q").value = m[1].trim();
+    if (det) $("ocrStatus").textContent += " (marca detectada: " + det + ")";
     render(hits, text);
   } catch (err) {
     $("ocrStatus").textContent = err.message;
