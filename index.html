@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buscador de Cargadores de Notebook</title>
+<style>
+  :root {
+    --bg: #f4f6fb; --card: #ffffff; --text: #1b2330; --muted: #627086;
+    --line: #dfe4ee; --accent: #2563eb; --accent-2: #e8efff; --ok: #0f8a4b; --warn: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f141c; --card: #182030; --text: #e8edf6; --muted: #94a1b8;
+      --line: #2a3448; --accent: #6ea0ff; --accent-2: #1e2c4b; --ok: #4ade80; --warn: #fbbf24;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.45; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  input[type=text], select { flex: 1 1 220px; padding: 12px 14px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  select { flex: 0 1 180px; }
+  button, .btn { padding: 12px 16px; font-size: 1rem; border-radius: 10px; border: 0; background: var(--accent); color: #fff; cursor: pointer; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { button, .btn { color: #0b1220; } }
+  .btn.sec { background: var(--accent-2); color: var(--accent); }
+  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; color: var(--muted); cursor: pointer; margin-top: 12px; }
+  .drop.over { border-color: var(--accent); background: var(--accent-2); }
+  .preview { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; margin-top: 12px; }
+  .preview img { max-width: 220px; max-height: 180px; border-radius: 10px; border: 1px solid var(--line); }
+  .status { font-size: .92rem; color: var(--muted); }
+  .ocr { font-family: ui-monospace, Menlo, monospace; font-size: .85rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 110px; overflow: auto; white-space: pre-wrap; }
+  .res { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .res h3 { margin: 0; font-size: 1.1rem; }
+  .brand { display: inline-block; font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); background: var(--accent-2); padding: 2px 8px; border-radius: 999px; margin-bottom: 6px; }
+  .specs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 10px; }
+  .spec { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .spec b { display: block; font-size: 1.25rem; }
+  .spec span { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .plug { display: flex; gap: 12px; align-items: center; margin-top: 10px; padding: 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+  .plug svg { flex: 0 0 64px; width: 64px; height: 36px; color: var(--accent); }
+  .note { font-size: .85rem; color: var(--warn); margin-top: 8px; }
+  .empty { color: var(--muted); text-align: center; padding: 18px 0; }
+  .foot { font-size: .82rem; color: var(--muted); margin-top: 24px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔌 Buscador de cargadores de notebook</h1>
+  <p class="sub">Escribí el modelo o subí una foto de la etiqueta de la notebook y te digo marca, cargador, ficha, voltaje y amperaje.</p>
+
+  <div class="card">
+    <div class="row">
+      <input type="text" id="q" placeholder="Ej: Lenovo IdeaPad 3 15IIL05, HP 15-dw, Aspire A315, VivoBook X515…" autocomplete="off">
+      <select id="brand"><option value="">Todas las marcas</option></select>
+      <button id="go">Buscar</button>
+    </div>
+
+    <label class="drop" id="drop">
+      📷 Tocá acá, arrastrá o sacá una <b>foto</b> de la etiqueta de abajo de la notebook (donde dice el modelo)
+      <input type="file" id="file" accept="image/*" hidden>
+    </label>
+    <div class="preview" id="preview" hidden>
+      <img id="img" alt="Foto cargada">
+      <div style="flex:1 1 240px">
+        <div class="status" id="ocrStatus"></div>
+        <div class="ocr" id="ocrText" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="results" class="res"></div>
+
+  <details class="foot">
+    <summary>Sobre la precisión de los datos</summary>
+    <p>Los datos son valores típicos por familia/modelo. Una misma notebook puede traer cargadores distintos según la versión (procesador, placa de video). <b>Confirmá siempre con la etiqueta del cargador original</b> antes de comprar o conectar uno: el voltaje debe coincidir y el amperaje (o potencia) debe ser igual o mayor. La foto se procesa en tu navegador (OCR) y no se sube a ningún servidor propio; reconoce solo texto impreso, no identifica la notebook por su aspecto.</p>
+  </details>
+</div>
+
+<script>
+// ---------- Base de datos ----------
+// keys: fragmentos de modelo/serie (se comparan sin espacios ni símbolos, en minúscula)
+const P = {
+  slim:   {t:"Lenovo Slim Tip (rectangular)", k:"rect"},
+  lenRound:{t:"Redonda con pin 4.0 × 1.7 mm (Lenovo, punta chica)", k:"barrel"},
+  usbc:   {t:"USB-C (Power Delivery)", k:"usbc"},
+  hpBlue: {t:"Redonda con pin central 4.5 × 3.0 mm (punta azul HP/Dell)", k:"barrel"},
+  hpBig:  {t:"Redonda con pin central 7.4 × 5.0 mm", k:"barrel"},
+  b55x17: {t:"Redonda 5.5 × 1.7 mm (Acer/Gateway)", k:"barrel"},
+  b55x25: {t:"Redonda 5.5 × 2.5 mm", k:"barrel"},
+  b55x30: {t:"Redonda con pin central 5.5 × 3.0 mm (Samsung)", k:"barrel"},
+  b40x135:{t:"Redonda 4.0 × 1.35 mm (ASUS, punta fina)", k:"barrel"},
+  b30x11: {t:"Redonda 3.0 × 1.1 mm (Acer Swift/Spin, punta fina)", k:"barrel"},
+  b60x37: {t:"Redonda 6.0 × 3.7 mm (ASUS gamer)", k:"barrel"},
+  sony:   {t:"Redonda con pin central 6.5 × 4.4 mm (Sony Vaio)", k:"barrel"},
+  mag:    {t:"MagSafe (magnética, Apple)", k:"rect"},
+  surf:   {t:"Surface Connect (magnética)", k:"rect"}
+};
+
+const DB = [
+  // ---- Lenovo ----
+  {b:"Lenovo", n:"IdeaPad 110 / 310 / 320 / 330 / S145", keys:["ideapad110","ideapad310","ideapad320","ideapad330","ideapads145","s145","80tj","80xr","81d6"], v:20, a:2.25, w:45, p:P.lenRound},
+  {b:"Lenovo", n:"IdeaPad 3 / Slim 3 / Slim 5 (cargador rectangular)", keys:["ideapad3","ideapad5","slim3","slim5","15iil05","15ada05","15itl05","14iil05","15iml05","15igl05","15alc6","14alc6","15ach6","15iau7","15amn7","81we","81x8","82h8"], v:20, a:3.25, w:65, p:P.slim, note:"Algunos IdeaPad 3/Slim vienen con USB-C de 65 W; verificá la ficha en el cargador original."},
+  {b:"Lenovo", n:"IdeaPad 5 / Yoga Slim 7 (USB-C)", keys:["yoga","yogaslim","ideapad5pro","flex5","flex14"], v:20, a:3.25, w:65, p:P.usbc},
+  {b:"Lenovo", n:"ThinkPad E14 / E15 / L14 / L15 / T14 / X13 / T480 / T490", keys:["thinkpade14","thinkpade15","thinkpadl14","thinkpadl15","thinkpadt14","thinkpadx13","t480","t490","t14","e14","e15","l14","l15","x13"], v:20, a:3.25, w:65, p:P.usbc, note:"Los ThinkPad más viejos (T440–T470, X240–X270, E470) usan Slim Tip 20 V 3.25 A (65 W) o 4.5 A (90 W)."},
+  {b:"Lenovo", n:"ThinkPad T440 / T450 / T460 / T470 / X240 / X250 / E470", keys:["t440","t450","t460","t470","x240","x250","x260","x270","e470","e480","e490"], v:20, a:4.5, w:90, p:P.slim},
+  {b:"Lenovo", n:"Legion 5 / Legion 5 Pro / IdeaPad Gaming 3", keys:["legion5","legion7","legion","gaming3","ideapadgaming3","15arh05","15imh05","15ach6h","16ach6"], v:20, a:11.5, w:230, p:P.slim, note:"Versiones con RTX 3050/1650 pueden usar 170 W (20 V 8.5 A) o 135 W (20 V 6.75 A)."},
+  {b:"Lenovo", n:"G40 / G50 / B50 / Z50 / V310 / V330 / V130", keys:["g4070","g50","b50","z50","v310","v330","v130","e31","e41","e51"], v:20, a:3.25, w:65, p:P.slim},
+  // ---- HP ----
+  {b:"HP", n:"HP 14 / 15 (14-cf, 14-dq, 15-dw, 15-da, 15-bs, 15-bw, 250/255 G6-G7)", keys:["14cf","14dq","14dk","14ck","15dw","15da","15bs","15bw","15ef","15dy","15ay","250g6","250g7","250g8","255g7","255g8","240g7","hp14","hp15"], v:19.5, a:2.31, w:45, p:P.hpBlue, note:"Si el cargador original dice 65 W (19.5 V 3.33 A), usá ese: el de 65 W sirve igual para equipos de 45 W."},
+  {b:"HP", n:"HP Pavilion 14 / 15 / x360 / ProBook 440-450 / EliteBook 8xx", keys:["pavilion","probook","elitebook","440g","450g","430g","840g","830g","820g","envy","dv6","dv7","g62","g42","hp250","hp255"], v:19.5, a:3.33, w:65, p:P.hpBlue, note:"Los modelos recientes de EliteBook/ProBook/Pavilion pueden usar USB-C 65 W (20 V 3.25 A)."},
+  {b:"HP", n:"HP Pavilion Gaming / Victus 15-16", keys:["pavilion15dk","pavilion15ec","15ec","15dk","victus","15fa","16d0","16e0","pavilion gaming"], v:19.5, a:7.7, w:150, p:P.hpBig},
+  {b:"HP", n:"HP Omen 15 / 16 / 17", keys:["omen","15dc","15en","15ek","16b","17cb","15ce"], v:19.5, a:11.8, w:230, p:P.hpBig, note:"Algunos Omen usan 200 W (19.5 V 10.3 A)."},
+  // ---- Dell ----
+  {b:"Dell", n:"Inspiron 3000 / 3501 / 3511 / 3520 (45 W)", keys:["inspiron3","3501","3511","3520","3505","3593","3583","3576"], v:19.5, a:2.31, w:45, p:P.hpBlue},
+  {b:"Dell", n:"Inspiron 15 5000 / 7000 / Vostro / Latitude 3xxx-5xxx", keys:["inspiron5","inspiron7","vostro","latitude3","latitude5","latitude7","5559","5567","5570","5584","5590","5593","e5470","e5570","e7470"], v:19.5, a:3.34, w:65, p:P.hpBlue, note:"Latitude/XPS recientes pueden traer USB-C de 65 W (20 V 3.25 A)."},
+  {b:"Dell", n:"Latitude E6400 / E6420 / E6430 / E6440 / Precision", keys:["e6400","e6410","e6420","e6430","e6440","e6520","e6530","e5420","e5430","precision"], v:19.5, a:4.62, w:90, p:P.hpBig},
+  {b:"Dell", n:"Dell G3 / G5 / G7 / Alienware (180 W)", keys:["g3 3500","g3 3579","g3 3590","g5 5500","g5 5587","g7","alienware","g15","5500","5587","3579","3590"], v:19.5, a:9.23, w:180, p:P.hpBig, note:"Algunos G3 usan 130 W (19.5 V 6.67 A, ficha 4.5 × 3.0 mm)."},
+  {b:"Dell", n:"XPS 13 / XPS 15 (USB-C)", keys:["xps13","xps15","xps","9300","9310","9500"], v:20, a:4.5, w:90, p:P.usbc, note:"XPS 13 usa 45 W/65 W (20 V 2.25–3.25 A); XPS 15 usa 90 W–130 W."},
+  // ---- Acer ----
+  {b:"Acer", n:"Aspire 3 / 5 / 7 / E15 / ES1 / Extensa / TravelMate (65 W)", keys:["aspire3","aspire5","aspire7","a315","a515","a114","a315","e15","es1","extensa","travelmate","v5","e5575","a317","tmp"], v:19, a:3.42, w:65, p:P.b55x17, note:"Los de 45 W usan 19 V 2.37 A con la misma ficha."},
+  {b:"Acer", n:"Swift / Spin / Chromebook (punta fina)", keys:["swift","spin","chromebook","sf314","sf315","sp314","sp513"], v:19, a:2.37, w:45, p:P.b30x11, note:"Algunos Swift/Spin vienen con USB-C 45 W/65 W."},
+  {b:"Acer", n:"Nitro 5 / Aspire 7 gamer (135 W)", keys:["nitro5","nitro","an515","an517","a715","a717"], v:19, a:7.1, w:135, p:P.b55x17, note:"Versiones con RTX 3050 o superior usan 180 W (19.5 V 9.23 A); verificá la etiqueta."},
+  // ---- ASUS ----
+  {b:"ASUS", n:"VivoBook / X540 / X541 / X543 / X515 / X509 / A412 (45 W)", keys:["vivobook","x540","x541","x543","x441","x407","x409","x415","x509","x515","x512","x412","x420","x430","d509","m515","k513","e410","e510"], v:19, a:2.37, w:45, p:P.b40x135, note:"Algunos de 65 W usan 19 V 3.42 A con la misma ficha."},
+  {b:"ASUS", n:"ASUS X550 / K55 / K53 / X451 / N56 / A55 (90 W)", keys:["x550","k55","k53","x451","n56","x53","a55","a53","x555","x75","x751","k501","k50","n46"], v:19, a:4.74, w:90, p:P.b55x25},
+  {b:"ASUS", n:"ZenBook / UX / ExpertBook", keys:["zenbook","ux305","ux330","ux430","ux434","ux425","expertbook","ux31","ux32"], v:19, a:2.37, w:45, p:P.b40x135, note:"Muchos ZenBook nuevos usan USB-C 65 W (20 V 3.25 A)."},
+  {b:"ASUS", n:"TUF Gaming F15 / F17 / A15 / FX505 / FX506", keys:["tuf","fx505","fx506","fx507","fa506","fa507","fx504","f15","f17"], v:20, a:6.0, w:120, p:P.b60x37, note:"Versiones con RTX 3060+ usan 200–240 W."},
+  {b:"ASUS", n:"ROG Strix / Zephyrus / G15 / G17", keys:["rog","strix","zephyrus","g512","g513","g531","g713","g733","gl503","gl702","gl552"], v:20, a:11.5, w:230, p:P.b60x37},
+  // ---- Samsung ----
+  {b:"Samsung", n:"NP300 / NP350 / NP270 / RV / R430-R540 (60 W)", keys:["np300","np350","np270","np305","np355","np370","np530","rv415","rv420","rv510","r430","r440","r480","r540","r580","e5","np300e5"], v:19, a:3.16, w:60, p:P.b55x30},
+  {b:"Samsung", n:"NP550 / NP700 / Series 7 / Odyssey (90 W)", keys:["np550","np700","np900","series7","series9","odyssey","np800"], v:19, a:4.74, w:90, p:P.b55x30},
+  {b:"Samsung", n:"Galaxy Book (USB-C)", keys:["galaxybook","np750","np930","np940","np950"], v:20, a:3.25, w:65, p:P.usbc},
+  // ---- Toshiba ----
+  {b:"Toshiba", n:"Satellite C / L / S 50-55 / A200 (65 W)", keys:["satellitec","satellitel","satellites","c55","c50","c45","l50","l55","l745","a200","a205","a300","l300","l305","l455","l650","l750"], v:19, a:3.42, w:65, p:P.b55x25},
+  {b:"Toshiba", n:"Satellite P / X / Qosmio (90 W)", keys:["satellitep","satellitex","qosmio","p50","p55","p70","p750","x70","x505","x775"], v:19, a:4.74, w:90, p:P.b55x25},
+  // ---- Sony ----
+  {b:"Sony", n:"Vaio VPCEH / VPCEE / VPCCA / SVF (90 W)", keys:["vaio","vpceh","vpcee","vpcca","vpcea","vpcf","svf15","svf14","svt","svs","pcg"], v:19.5, a:4.7, w:90, p:P.sony},
+  // ---- MSI ----
+  {b:"MSI", n:"GF63 / GF65 / GL63 / GL65 / Katana / Bravo / Pulse", keys:["gf63","gf65","gl63","gl65","gl62","gp62","gv62","katana","bravo","pulse","cyborg","thin gf63"], v:19.5, a:9.23, w:180, p:P.b55x25, note:"GF63 Thin con GTX 1650 usa 120 W (19 V 6.32 A)."},
+  {b:"MSI", n:"Modern / Prestige / Summit (USB-C)", keys:["modern14","modern15","prestige","summit"], v:20, a:3.25, w:65, p:P.usbc},
+  // ---- Huawei / Microsoft / LG / Apple ----
+  {b:"Huawei", n:"MateBook D / D14 / D15 / 13 / 14 (USB-C)", keys:["matebook","magicbook","boh","nbl","klvl","kelvin"], v:20, a:3.25, w:65, p:P.usbc, note:"También acepta 15 V 3 A (45 W) o 20 V 2.25 A."},
+  {b:"Microsoft", n:"Surface Pro / Laptop / Book / Go", keys:["surface","surfacepro","surfacelaptop","surfacego","surfacebook"], v:15, a:4.0, w:60, p:P.surf, note:"Surface Pro 7+/Laptop 3-4: 15 V 4.0 A (60 W) o 15 V 4.33 A (65 W). Surface Go: 15 V 1.6 A (24 W)."},
+  {b:"LG", n:"LG gram 14 / 15 / 16 / 17 (USB-C)", keys:["lggram","gram14","gram15","gram16","gram17","14z90","15z90","17z90"], v:20, a:3.25, w:65, p:P.usbc},
+  {b:"Apple", n:"MacBook Air 13\" 2012–2017", keys:["macbookair","a1466","a1369","a1465","a1370"], v:14.85, a:3.05, w:45, p:P.mag, note:"MagSafe 1 (L) o MagSafe 2 (T), de 45 W."},
+  {b:"Apple", n:"MacBook Pro 13\" 2012–2015", keys:["macbookpro","a1278","a1425","a1502"], v:16.5, a:3.65, w:60, p:P.mag, note:"MagSafe 2 de 60 W."},
+  {b:"Apple", n:"MacBook Pro 15\" 2012–2015", keys:["a1286","a1398"], v:20, a:4.25, w:85, p:P.mag, note:"MagSafe 2 de 85 W."},
+  {b:"Apple", n:"MacBook Air / Pro 13\" 2016+ (USB-C)", keys:["a1932","a2179","a2337","a2338","a1706","a1708","a1989","a2159","a2251","a2289"], v:20.3, a:3.0, w:61, p:P.usbc, note:"Air M1/M2 usan 30 W (20 V 1.5 A) y Pro 14\"/16\" usan MagSafe 3 de 67–140 W."},
+  // ---- Latam ----
+  {b:"Exo / BGH / Noblex / Positivo", n:"Netbooks y notebooks económicas (Exo Smart, BGH Positivo, Noblex)", keys:["exo","smartr","bgh","positivo","noblex","bghpositivo","q232","motion","master n","tecra"], v:19, a:2.1, w:40, p:P.b55x25, note:"Valor aproximado: estas marcas cambian mucho entre modelos (rango 19 V, 2.1–3.42 A). Medí la ficha y mirá la etiqueta del cargador."}
+];
+
+// ---------- Utilidades ----------
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");
+const $ = id => document.getElementById(id);
+
+const brands = [...new Set(DB.map(e => e.b))].sort();
+brands.forEach(b => { const o = document.createElement("option"); o.value = o.textContent = b; $("brand").appendChild(o); });
+
+function icon(kind) {
+  if (kind === "usbc") return '<svg viewBox="0 0 64 36" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="8" width="52" height="20" rx="10"/><rect x="18" y="15" width="28" height="6" rx="3" fill="currentColor"/></svg>';
+  if (kind === "rect") return '<svg viewBox="0 0 64 36" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="9" width="48" height="18" rx="3"/><rect x="18" y="15" width="28" height="6" fill="currentColor"/></svg>';
+  return '<svg viewBox="0 0 64 36" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="10" width="34" height="16" rx="2"/><rect x="38" y="13" width="18" height="10" rx="2"/><circle cx="47" cy="18" r="2.5" fill="currentColor"/></svg>';
+}
+
+function search(text, brand) {
+  const q = norm(text);
+  const hits = [];
+  DB.forEach(e => {
+    if (brand && e.b !== brand) return;
+    let score = 0;
+    const eb = norm(e.b);
+    if (q.length >= 3) {
+      e.keys.forEach(k => {
+        const nk = norm(k);
+        if (nk.length >= 3 && q.includes(nk)) score = Math.max(score, nk.length + 3);
+        else if (q.length >= 4 && nk.includes(q)) score = Math.max(score, q.length);
+      });
+      if (norm(e.n).includes(q)) score = Math.max(score, q.length + 2);
+      if (q.includes(eb) && score) score += 2;
+      else if (q.includes(eb) && !score) score = 1; // solo marca
+    }
+    if (score) hits.push({e, score});
+  });
+  hits.sort((a, b) => b.score - a.score);
+  return hits;
+}
+
+function render(hits, text) {
+  const box = $("results");
+  if (!hits.length) {
+    box.innerHTML = '<div class="card empty">No encontré ese modelo. Probá con la serie (ej. “IdeaPad 3”, “15-dw”, “A315”) o elegí la marca. También podés mirar la etiqueta del cargador original.</div>';
+    return;
+  }
+  const only = hits.slice(0, 8);
+  box.innerHTML = only.map(({e}) => `
+    <div class="card">
+      <span class="brand">${e.b}</span>
+      <h3>${e.n}</h3>
+      <div class="specs">
+        <div class="spec"><span>Voltaje</span><b>${e.v} V</b></div>
+        <div class="spec"><span>Amperaje</span><b>${e.a} A</b></div>
+        <div class="spec"><span>Potencia</span><b>${e.w} W</b></div>
+      </div>
+      <div class="plug">${icon(e.p.k)}<div><span class="status">Ficha (tipo de conector)</span><br><b>${e.p.t}</b></div></div>
+      ${e.note ? `<div class="note">⚠ ${e.note}</div>` : ""}
+    </div>`).join("");
+}
+
+function run() {
+  const t = $("q").value.trim();
+  if (!t) { $("results").innerHTML = ""; return; }
+  render(search(t, $("brand").value), t);
+}
+
+$("go").addEventListener("click", run);
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+$("brand").addEventListener("change", () => $("q").value.trim() && run());
+
+// ---------- Foto + OCR ----------
+let tessLoading = null;
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (tessLoading) return tessLoading;
+  tessLoading = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
+    s.onload = res; s.onerror = () => { tessLoading = null; rej(new Error("No se pudo cargar el lector de texto (¿sin internet?).")); };
+    document.head.appendChild(s);
+  });
+  return tessLoading;
+}
+
+async function handleFile(f) {
+  if (!f || !f.type.startsWith("image/")) return;
+  $("img").src = URL.createObjectURL(f);
+  $("preview").hidden = false;
+  $("ocrText").hidden = true;
+  $("ocrStatus").textContent = "Cargando lector de texto…";
+  try {
+    await loadTesseract();
+    const r = await Tesseract.recognize(f, "eng", {
+      logger: m => { if (m.status === "recognizing text") $("ocrStatus").textContent = "Leyendo etiqueta… " + Math.round(m.progress * 100) + "%"; }
+    });
+    const text = r.data.text.trim();
+    $("ocrText").hidden = false;
+    $("ocrText").textContent = text || "(no se detectó texto)";
+    if (!text) { $("ocrStatus").textContent = "No pude leer texto. Probá con una foto más cercana y con buena luz."; return; }
+    const hits = search(text, $("brand").value);
+    $("ocrStatus").textContent = hits.length ? "Texto leído. Estos son los modelos que coinciden:" : "Texto leído, pero no coincide con la base. Corregí el modelo a mano arriba.";
+    // sugerir un modelo en el buscador: línea con "model"/"mod" o la más parecida a un código
+    const m = text.match(/(?:model|mod\.?|type|p\/n)\s*[:.]?\s*([A-Z0-9][A-Z0-9\-\/ ]{3,24})/i);
+    if (m) $("q").value = m[1].trim();
+    render(hits, text);
+  } catch (err) {
+    $("ocrStatus").textContent = err.message;
+  }
+}
+
+$("file").addEventListener("change", e => handleFile(e.target.files[0]));
+const drop = $("drop");
+["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handleFile(e.dataTransfer.files[0]));
+drop.addEventListener("click", e => { if (e.target !== $("file")) { e.preventDefault(); $("file").click(); } });
+</script>
+</body>
+</html>
